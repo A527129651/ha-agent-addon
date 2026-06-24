@@ -1,0 +1,450 @@
+<!DOCTYPE html>
+<html lang="he" dir="rtl">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>HA Agent</title>
+<style>
+  *{margin:0;padding:0;box-sizing:border-box}
+  body{background:#070d1a;font-family:'Segoe UI',system-ui,sans-serif;color:#f1f5f9;height:100vh;display:flex;flex-direction:column;overflow:hidden}
+  #header{padding:13px 20px;border-bottom:1px solid #1a2540;background:#0a1020;display:flex;align-items:center;gap:12px;flex-shrink:0}
+  #logo{width:38px;height:38px;border-radius:10px;background:linear-gradient(135deg,#0ea5e9,#6366f1);display:flex;align-items:center;justify-content:center;font-size:18px;box-shadow:0 0 14px rgba(14,165,233,.3);flex-shrink:0}
+  #title{font-weight:700;font-size:15px}
+  #subtitle{font-size:11px;color:#34d399}
+  #refresh-btn{margin-right:auto;padding:6px 12px;border-radius:8px;border:1px solid #1e293b;background:transparent;color:#64748b;font-size:12px;cursor:pointer}
+  #refresh-btn:hover{color:#f1f5f9;border-color:#38bdf8}
+  #stats{padding:10px 20px;border-bottom:1px solid #1a2540;background:#090e1a;overflow-x:auto;flex-shrink:0}
+  #stats-inner{display:flex;gap:8px;min-width:max-content}
+  .badge{background:#111827;border:1px solid #1e2d45;border-radius:10px;padding:8px 14px;display:flex;align-items:center;gap:8px}
+  .badge.warn{border-color:#854d0e}
+  .badge-icon{font-size:18px}
+  .badge-val{font-size:17px;font-weight:700;line-height:1}
+  .badge.warn .badge-val{color:#fbbf24}
+  .badge-lbl{font-size:10px;color:#64748b;margin-top:2px}
+  #chat{flex:1;overflow-y:auto;padding:20px 20px 0}
+  #chat-inner{max-width:780px;margin:0 auto}
+  #quick{margin-bottom:20px}
+  #quick p{font-size:13px;color:#64748b;margin-bottom:12px}
+  #quick-grid{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+  .quick-btn{padding:10px 14px;border-radius:10px;border:1px solid #1a2540;background:#0d1424;color:#94a3b8;font-size:13px;cursor:pointer;text-align:right;line-height:1.4;font-family:inherit;transition:border-color .15s,color .15s}
+  .quick-btn:hover{border-color:#38bdf8;color:#f1f5f9}
+  .msg-wrap{display:flex;margin-bottom:18px;animation:msgIn .25s ease}
+  .msg-wrap.user{justify-content:flex-end}
+  @keyframes msgIn{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:translateY(0)}}
+  .msg-avatar{width:36px;height:36px;border-radius:10px;background:linear-gradient(135deg,#0ea5e9,#6366f1);display:flex;align-items:center;justify-content:center;font-size:18px;flex-shrink:0;margin-left:10px;margin-top:3px}
+  .msg-body{max-width:80%}
+  .msg-bubble{padding:12px 16px;border-radius:18px 18px 18px 4px;background:#1a2540;border:1px solid #243046;font-size:14.5px;line-height:1.75;white-space:pre-wrap;word-break:break-word}
+  .msg-wrap.user .msg-bubble{border-radius:18px 18px 4px 18px;background:linear-gradient(135deg,#0ea5e9,#6366f1);border-color:transparent}
+  .msg-bubble.confirm{background:linear-gradient(135deg,#0f2a4a,#0f1a4a);border-color:#38bdf8}
+  .confirm-tag{font-size:10px;color:#38bdf8;font-weight:700;letter-spacing:1.2px;margin-bottom:6px}
+  .action-panel{margin:12px 0;padding:14px 16px;background:linear-gradient(135deg,#0f2a4a,#0f1a4a);border:1px solid #38bdf8;border-radius:12px}
+  .action-tag{font-size:10px;color:#38bdf8;font-weight:700;letter-spacing:1.2px;margin-bottom:8px}
+  .action-desc{font-size:13px;color:#cbd5e1;margin-bottom:12px;line-height:1.6}
+  .exec-btn{padding:8px 20px;border-radius:8px;border:none;background:linear-gradient(135deg,#0ea5e9,#6366f1);color:#fff;font-size:13px;font-weight:700;cursor:pointer;font-family:inherit}
+  .exec-btn:disabled{background:#1e293b;color:#475569;cursor:wait}
+  .exec-result{margin-top:8px;padding:10px 14px;border-radius:10px;font-size:13px}
+  .exec-result.ok{background:rgba(52,211,153,.08);border:1px solid rgba(52,211,153,.3);color:#6ee7b7}
+  .exec-result.err{background:rgba(239,68,68,.08);border:1px solid rgba(239,68,68,.3);color:#fca5a5}
+  .code-block{margin:10px 0;border-radius:10px;overflow:hidden;border:1px solid #1e293b;direction:ltr;text-align:left}
+  .code-header{background:#0f172a;padding:5px 14px;display:flex;justify-content:space-between;align-items:center}
+  .code-lang{font-size:11px;color:#475569;font-family:monospace}
+  .copy-btn{background:none;border:none;font-size:11px;cursor:pointer;padding:2px 6px;font-family:inherit}
+  .copy-btn.done{color:#34d399} .copy-btn:not(.done){color:#475569}
+  pre{background:#090e1a;margin:0;padding:12px 14px;overflow-x:auto;font-size:12.5px;color:#7dd3fc;font-family:'Fira Code','Courier New',monospace;line-height:1.65}
+  .dots{display:flex;gap:5px;padding:10px 4px}
+  .dot{width:7px;height:7px;border-radius:50%;background:#38bdf8}
+  .dot:nth-child(1){animation:blink 1.2s ease-in-out 0s infinite}
+  .dot:nth-child(2){animation:blink 1.2s ease-in-out .2s infinite}
+  .dot:nth-child(3){animation:blink 1.2s ease-in-out .4s infinite}
+  @keyframes blink{0%,100%{opacity:.3;transform:scale(.8)}50%{opacity:1;transform:scale(1)}}
+  #input-area{padding:14px 20px 18px;border-top:1px solid #1a2540;background:#0a1020;flex-shrink:0}
+  #input-inner{max-width:780px;margin:0 auto;display:flex;gap:10px;align-items:flex-end}
+  #msg-input{flex:1;background:#111827;border:1px solid #1e293b;border-radius:12px;padding:12px 16px;color:#f1f5f9;font-size:14.5px;outline:none;resize:none;min-height:48px;max-height:130px;font-family:inherit;line-height:1.6;transition:border-color .15s}
+  #msg-input:focus{border-color:#38bdf8}
+  #send-btn{width:48px;height:48px;border-radius:12px;border:none;background:#111827;color:#334155;font-size:20px;cursor:not-allowed;display:flex;align-items:center;justify-content:center;flex-shrink:0;transition:all .15s}
+  #send-btn.active{background:linear-gradient(135deg,#0ea5e9,#6366f1);color:#fff;cursor:pointer;box-shadow:0 0 16px rgba(14,165,233,.3)}
+  #loading-screen{position:fixed;inset:0;background:#070d1a;display:flex;align-items:center;justify-content:center;flex-direction:column;gap:16px;font-size:18px;color:#38bdf8;font-family:'Segoe UI',system-ui,sans-serif;z-index:100}
+  #loading-icon{font-size:28px;animation:spin 1s linear infinite}
+  @keyframes spin{to{transform:rotate(360deg)}}
+  #error-screen{position:fixed;inset:0;background:#070d1a;display:flex;align-items:center;justify-content:center;flex-direction:column;gap:16px;padding:24px;font-family:'Segoe UI',system-ui,sans-serif;z-index:100;display:none}
+  .retry-btn{padding:10px 24px;border-radius:10px;border:none;background:linear-gradient(135deg,#0ea5e9,#6366f1);color:#fff;font-size:14px;cursor:pointer;font-weight:700;font-family:inherit}
+  ::-webkit-scrollbar{width:6px;height:6px}
+  ::-webkit-scrollbar-track{background:#0d1424}
+  ::-webkit-scrollbar-thumb{background:#1e293b;border-radius:3px}
+</style>
+</head>
+<body>
+
+<div id="loading-screen">
+  <div id="loading-icon">⚙️</div>
+  <div>טוען נתוני מערכת...</div>
+</div>
+
+<div id="error-screen">
+  <div style="font-size:48px">❌</div>
+  <div style="font-size:18px;font-weight:700;color:#f1f5f9">שגיאת חיבור</div>
+  <div id="error-msg" style="color:#fca5a5;font-size:14px;text-align:center;direction:rtl;max-width:380px"></div>
+  <div style="color:#64748b;font-size:13px;direction:rtl;text-align:center;max-width:400px">
+    בדוק שה-Anthropic API Key מוגדר ב-Add-on Configuration
+  </div>
+  <button class="retry-btn" onclick="location.reload()">נסה שוב</button>
+</div>
+
+<div id="header">
+  <div id="logo">🏠</div>
+  <div>
+    <div id="title">HA Agent</div>
+    <div id="subtitle">מתחבר...</div>
+  </div>
+  <button id="refresh-btn" onclick="refresh()">↻ רענן</button>
+</div>
+
+<div id="stats">
+  <div id="stats-inner">
+    <div class="badge"><span class="badge-icon">⏳</span><div><div class="badge-val">-</div><div class="badge-lbl">טוען</div></div></div>
+  </div>
+</div>
+
+<div id="chat">
+  <div id="chat-inner">
+    <div id="quick" style="display:none">
+      <p>פקודות מהירות:</p>
+      <div id="quick-grid"></div>
+    </div>
+  </div>
+</div>
+
+<div id="input-area">
+  <div id="input-inner">
+    <textarea id="msg-input" placeholder="שאל את הסוכן... (Enter לשליחה, Shift+Enter לשורה חדשה)" rows="1"></textarea>
+    <button id="send-btn" onclick="send()">↑</button>
+  </div>
+</div>
+
+<script>
+// ── State ──────────────────────────────────────────────────────────────────
+let snapshot = null;
+let messages = [];
+let sending  = false;
+let executing = false;
+let pendingAction = null;
+
+const QUICK = [
+  "למה Home Assistant איטי?",
+  "מצא אוטומציות כפולות",
+  "מצא חיישנים תקועים",
+  "מצא סקריפטים שלא הופעלו חודש",
+  "נתח את הלוגים",
+  "מצא ישויות לא זמינות",
+  "הצע אופטימיזציות",
+  "בדוק קונפליקטים",
+];
+
+// ── Helpers ────────────────────────────────────────────────────────────────
+function parseAction(text) {
+  const m = text.match(/```action\n([\s\S]*?)```/);
+  if (!m) return null;
+  try { return JSON.parse(m[1]); } catch { return null; }
+}
+
+function stripAction(text) {
+  return text.replace(/```action\n[\s\S]*?```/g, "").trim();
+}
+
+function escHtml(s) {
+  return s.replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;");
+}
+
+function renderContent(text) {
+  const parts = text.split(/(```[\s\S]*?```)/g);
+  let html = "";
+  parts.forEach(part => {
+    if (part.startsWith("```")) {
+      const lines = part.slice(3).split("\n");
+      const lang  = lines[0].trim();
+      const code  = lines.slice(1).join("\n").replace(/```$/, "").trim();
+      if (lang === "action") return;
+      const id = "cb" + Math.random().toString(36).slice(2);
+      html += `<div class="code-block">
+        <div class="code-header">
+          <span class="code-lang">${escHtml(lang||"code")}</span>
+          <button class="copy-btn" id="${id}" onclick="copyCode(this,'${escHtml(code).replace(/'/g,"\\'")}')">העתק</button>
+        </div>
+        <pre>${escHtml(code)}</pre>
+      </div>`;
+    } else {
+      html += escHtml(part).replace(/\n/g,"<br>").replace(/\*\*(.*?)\*\*/g,"<strong>$1</strong>");
+    }
+  });
+  return html;
+}
+
+function copyCode(btn, code) {
+  navigator.clipboard.writeText(code);
+  btn.textContent = "✓ הועתק";
+  btn.classList.add("done");
+  setTimeout(() => { btn.textContent = "העתק"; btn.classList.remove("done"); }, 1800);
+}
+
+function scrollBottom() {
+  const chat = document.getElementById("chat");
+  chat.scrollTop = chat.scrollHeight;
+}
+
+// ── Stats bar ──────────────────────────────────────────────────────────────
+function renderStats(s) {
+  const items = [
+    { icon:"📦", label:"Entities",    value:s.total_entities, warn:false },
+    { icon:"⚙️", label:"אוטומציות",  value:s.automations,    warn:false },
+    { icon:"📜", label:"סקריפטים",    value:s.scripts,        warn:false },
+    { icon:"🌡️", label:"חיישנים",     value:s.sensors,        warn:false },
+  ];
+  if (s.unavailable > 0)           items.push({ icon:"🔴", label:"לא זמין",    value:s.unavailable,           warn:true });
+  if (s.stuck_sensors > 0)         items.push({ icon:"🟡", label:"תקועים",     value:s.stuck_sensors,         warn:true });
+  if (s.idle_scripts > 0)          items.push({ icon:"💤", label:"לא פעיל",    value:s.idle_scripts,          warn:true });
+  if (s.duplicate_automations > 0) items.push({ icon:"♊", label:"כפולות",     value:s.duplicate_automations, warn:true });
+  if (s.errors_in_log > 0)         items.push({ icon:"🚨", label:"שגיאות לוג", value:s.errors_in_log,         warn:true });
+
+  document.getElementById("stats-inner").innerHTML = items.map(b =>
+    `<div class="badge${b.warn&&b.value>0?" warn":""}">
+      <span class="badge-icon">${b.icon}</span>
+      <div><div class="badge-val">${b.value}</div><div class="badge-lbl">${b.label}</div></div>
+    </div>`
+  ).join("");
+}
+
+// ── Messages ───────────────────────────────────────────────────────────────
+function addMessage(role, content, extra) {
+  messages.push({ role, content, extra });
+  renderMessages();
+}
+
+function renderMessages() {
+  const inner = document.getElementById("chat-inner");
+
+  // Quick buttons (only if 1 message)
+  const quick = document.getElementById("quick");
+  if (messages.length === 1) {
+    quick.style.display = "block";
+    document.getElementById("quick-grid").innerHTML = QUICK.map(q =>
+      `<button class="quick-btn" onclick="sendText('${q.replace(/'/g,"\\'")}')">${q}</button>`
+    ).join("");
+  } else {
+    quick.style.display = "none";
+  }
+
+  // Remove existing message elements
+  inner.querySelectorAll(".msg-wrap").forEach(el => el.remove());
+
+  messages.forEach((msg, idx) => {
+    const isUser = msg.role === "user";
+    const action = !isUser ? parseAction(msg.content) : null;
+    const text   = action  ? stripAction(msg.content) : msg.content;
+    const isConf = !isUser && msg.content.includes("מצאתי פתרון. לבצע?");
+
+    const wrap = document.createElement("div");
+    wrap.className = "msg-wrap" + (isUser ? " user" : "");
+
+    if (!isUser) {
+      wrap.innerHTML = `<div class="msg-avatar">🏠</div>`;
+    }
+
+    const bodyDiv = document.createElement("div");
+    bodyDiv.className = "msg-body";
+
+    const bubble = document.createElement("div");
+    bubble.className = "msg-bubble" + (isConf ? " confirm" : "");
+    if (isConf) {
+      bubble.innerHTML = `<div class="confirm-tag">⚡ ממתין לאישורך</div>`;
+    }
+    bubble.innerHTML += renderContent(text);
+    bodyDiv.appendChild(bubble);
+
+    if (action) {
+      const desc = action.type === "call_service"
+        ? `${action.domain}.${action.service}${action.entity_id ? " → " + action.entity_id : ""}`
+        : `יצירת ${action.filename}`;
+      const ap = document.createElement("div");
+      ap.className = "action-panel";
+      ap.id = `action-${idx}`;
+      ap.innerHTML = `
+        <div class="action-tag">⚡ פעולה ממתינה לאישור</div>
+        <div class="action-desc"><strong>סוג:</strong> ${action.type}<br><strong>פרטים:</strong> ${escHtml(desc)}</div>
+        <button class="exec-btn" onclick="execAction(${idx})">✓ בצע</button>
+      `;
+      bodyDiv.appendChild(ap);
+    }
+
+    if (msg.extra) {
+      const res = document.createElement("div");
+      res.className = "exec-result " + (msg.extra.ok ? "ok" : "err");
+      let html = (msg.extra.ok ? "✅ " : "❌ ") + escHtml(msg.extra.message || (msg.extra.ok ? "בוצע בהצלחה!" : "שגיאה"));
+      if (msg.extra.yaml) {
+        html += `<div class="code-block" style="margin-top:8px">
+          <div class="code-header"><span class="code-lang">${escHtml(msg.extra.filename||"yaml")}</span></div>
+          <pre>${escHtml(msg.extra.yaml)}</pre>
+        </div>`;
+      }
+      res.innerHTML = html;
+      bodyDiv.appendChild(res);
+    }
+
+    wrap.appendChild(bodyDiv);
+    inner.appendChild(wrap);
+  });
+
+  scrollBottom();
+}
+
+function addTyping() {
+  const inner = document.getElementById("chat-inner");
+  const wrap  = document.createElement("div");
+  wrap.className = "msg-wrap";
+  wrap.id = "typing";
+  wrap.innerHTML = `
+    <div class="msg-avatar">🏠</div>
+    <div class="msg-body">
+      <div class="msg-bubble" style="padding:10px 16px">
+        <div class="dots"><div class="dot"></div><div class="dot"></div><div class="dot"></div></div>
+      </div>
+    </div>`;
+  inner.appendChild(wrap);
+  scrollBottom();
+}
+
+function removeTyping() {
+  document.getElementById("typing")?.remove();
+}
+
+// ── API calls ──────────────────────────────────────────────────────────────
+async function refresh() {
+  try {
+    const r = await fetch("/api/snapshot");
+    const d = await r.json();
+    if (d.ok) { snapshot = d.snapshot; renderStats(d.snapshot.summary); }
+  } catch(e) { console.error(e); }
+}
+
+async function execAction(msgIdx) {
+  if (executing) return;
+  const msg    = messages[msgIdx];
+  const action = parseAction(msg.content);
+  if (!action) return;
+  executing = true;
+  const btn = document.querySelector(`#action-${msgIdx} .exec-btn`);
+  if (btn) { btn.disabled = true; btn.textContent = "מבצע..."; }
+
+  try {
+    const r = await fetch("/api/execute", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ action }),
+    });
+    const result = await r.json();
+    messages[msgIdx].extra = result;
+    renderMessages();
+    refresh();
+  } catch(e) {
+    messages[msgIdx].extra = { ok: false, message: e.message };
+    renderMessages();
+  }
+  executing = false;
+}
+
+// ── Send ───────────────────────────────────────────────────────────────────
+async function send() {
+  const ta   = document.getElementById("msg-input");
+  const text = ta.value.trim();
+  if (!text || sending) return;
+  sendText(text);
+}
+
+async function sendText(text) {
+  if (!text || sending) return;
+  const ta = document.getElementById("msg-input");
+  ta.value = "";
+  ta.style.height = "48px";
+  updateSendBtn();
+
+  addMessage("user", text);
+  sending = true;
+  addTyping();
+
+  try {
+    const r = await fetch("/api/ask", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        messages: messages.map(m => ({ role: m.role, content: m.content })),
+        snapshot,
+      }),
+    });
+    const d = await r.json();
+    removeTyping();
+    if (!r.ok) throw new Error(d.detail || r.statusText);
+    addMessage("assistant", d.reply);
+  } catch(e) {
+    removeTyping();
+    addMessage("assistant", `❌ שגיאה: ${e.message}`);
+  }
+  sending = false;
+}
+
+// ── Input ──────────────────────────────────────────────────────────────────
+function updateSendBtn() {
+  const btn = document.getElementById("send-btn");
+  const val = document.getElementById("msg-input").value.trim();
+  if (val && !sending) { btn.classList.add("active"); }
+  else                  { btn.classList.remove("active"); }
+}
+
+document.getElementById("msg-input").addEventListener("input", function() {
+  this.style.height = "auto";
+  this.style.height = Math.min(this.scrollHeight, 130) + "px";
+  updateSendBtn();
+});
+
+document.getElementById("msg-input").addEventListener("keydown", function(e) {
+  if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); send(); }
+});
+
+// ── Init ───────────────────────────────────────────────────────────────────
+async function init() {
+  try {
+    const r = await fetch("/api/snapshot");
+    const d = await r.json();
+    if (!r.ok || !d.ok) throw new Error(d.detail || "שגיאה בטעינה");
+
+    snapshot = d.snapshot;
+    const s  = d.snapshot.summary;
+
+    document.getElementById("subtitle").textContent =
+      `● מחובר · ${s.location_name} · v${s.version}`;
+    document.getElementById("subtitle").style.color = "#34d399";
+    renderStats(s);
+
+    document.getElementById("loading-screen").style.display = "none";
+
+    const warns = [
+      s.unavailable > 0     ? `🔴 ${s.unavailable} entities לא זמינים`     : "",
+      s.stuck_sensors > 0   ? `🟡 ${s.stuck_sensors} חיישנים תקועים`        : "",
+      s.idle_scripts > 0    ? `🟡 ${s.idle_scripts} סקריפטים לא פעילים`     : "",
+      s.duplicate_automations > 0 ? `🟡 ${s.duplicate_automations} כפולות`  : "",
+      s.errors_in_log > 0   ? `🔴 ${s.errors_in_log} שגיאות בלוג`          : "",
+    ].filter(Boolean);
+
+    addMessage("assistant",
+      `✅ HA Agent מחובר!\n\n**${s.location_name}** · גרסה ${s.version}\n\n📊 **סקירת מערכת:**\n• ${s.total_entities} entities\n• ${s.automations} אוטומציות · ${s.scripts} סקריפטים · ${s.sensors} חיישנים\n${warns.length ? warns.map(w=>"• "+w).join("\n") : "• ✅ הכל זמין"}\n\nמה תרצה לנתח?`
+    );
+
+  } catch(e) {
+    document.getElementById("loading-screen").style.display = "none";
+    document.getElementById("error-screen").style.display   = "flex";
+    document.getElementById("error-msg").textContent = e.message;
+  }
+}
+
+init();
+</script>
+</body>
+</html>
