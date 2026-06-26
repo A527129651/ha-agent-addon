@@ -1,6 +1,6 @@
 name: "HA Agent"
 description: "סוכן AI לניהול Home Assistant"
-version: "1.0.0"
+version: "1.0.1"
 slug: "ha_agent"
 arch:
   - aarch64
