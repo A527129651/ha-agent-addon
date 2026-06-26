@@ -25,3 +25,5 @@ homeassistant_api: true
 auth_api: true
 map:
   - config:rw
+
+timeout: 300
